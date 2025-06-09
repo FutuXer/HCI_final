@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QTextEdit, QLabel,
     QVBoxLayout, QWidget, QHBoxLayout
 )
-from voice import VoiceInputThread, speak
+from voice import VoiceInputThread
 
 
 class MainWindow(QMainWindow):
@@ -78,7 +78,7 @@ class MainWindow(QMainWindow):
         translated = f"【翻译结果占位】{input_text[::-1]}"  # 假设反转为翻译效果
         self.text_output.setText(translated)
         self.status_label.setText("状态：翻译完成。")
-        speak(translated)
+
 
     def ai_write(self):
         input_text = self.text_input.toPlainText()
@@ -89,7 +89,7 @@ class MainWindow(QMainWindow):
     def launch_gesture_module(self):
         self.status_label.setText("状态：即将启动手势识别模块。")
         import os
-        os.system("python gesture_main.py")  # 假设你已有 gesture_main.py
+        os.system("python gesture.py")  # 假设你已有 gesture_main.py
 
 
 if __name__ == "__main__":
