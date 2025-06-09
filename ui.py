@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout, QWidget, QHBoxLayout
 )
 from voice import VoiceInputThread
-
+from gesture import HandGestureThread
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -48,6 +48,7 @@ class MainWindow(QMainWindow):
 
         # ====== 信号绑定 ======
         self.voice_thread = None
+        self.gesture_thread = None
         self.voice_btn.clicked.connect(self.toggle_voice_input)
         self.translate_btn.clicked.connect(self.translate_text)
         self.ai_write_btn.clicked.connect(self.ai_write)
@@ -87,9 +88,14 @@ class MainWindow(QMainWindow):
         self.status_label.setText("状态：AI写作辅助完成。")
 
     def launch_gesture_module(self):
-        self.status_label.setText("状态：即将启动手势识别模块。")
-        import os
-        os.system("python gesture.py")  # 假设你已有 gesture_main.py
+        self.status_label.setText("状态：启动手势识别线程。")
+        if not self.gesture_thread:
+            self.gesture_thread = HandGestureThread()
+            self.gesture_thread.gesture_detected.connect(self.on_gesture_detected)
+            self.gesture_thread.start()
+
+    def on_gesture_detected(self, gesture_name):
+        self.status_label.setText(f"手势识别结果：{gesture_name}")
 
 
 if __name__ == "__main__":
