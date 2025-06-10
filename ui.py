@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QTextEdit, QLabel,
     QVBoxLayout, QWidget, QHBoxLayout, QComboBox, QMessageBox
 )
-from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot,QTimer
 from voice import VoiceInputThread
 from gesture import HandGestureThread
 from translate import baidu_translate
@@ -80,19 +80,18 @@ class MainWindow(QMainWindow):
 
     def toggle_voice_input(self):
         if self.voice_thread and self.voice_thread.isRunning():
-            # 先断开所有信号连接
-            self.voice_thread.result_ready.disconnect()
-            self.voice_thread.status_update.disconnect()
-            self.voice_thread.error_occurred.disconnect()
+            # 立即更新UI状态
+            self.voice_btn.setText("正在停止...")
+            self.voice_btn.setEnabled(False)
 
             # 停止线程
             self.voice_thread.stop()
-            self.voice_thread = None  # 释放引用
 
-            self.voice_btn.setText("🎤 开始语音输入")
-            self.status_label.setText("状态：语音输入已停止")
+            # 延迟检查线程状态
+            QTimer.singleShot(100, self.check_thread_status)
         else:
             self.voice_thread = VoiceInputThread()
+            self.voice_thread.finished.connect(self.check_thread_status)
             self.voice_thread.result_ready.connect(self.show_voice_result)
             self.voice_thread.status_update.connect(self.update_status)
             self.voice_thread.error_occurred.connect(self.handle_voice_error)
@@ -101,9 +100,14 @@ class MainWindow(QMainWindow):
             self.status_label.setText("状态：正在语音识别...")
 
     def check_thread_status(self):
-        if self.voice_thread and not self.voice_thread.isRunning():
-            self.voice_thread = None
-            self.voice_btn.setText("🎤 开始语音输入")
+        if self.voice_thread:
+            if not self.voice_thread.isRunning():
+                self.voice_thread = None
+                self.voice_btn.setText("🎤 开始语音输入")
+                self.voice_btn.setEnabled(True)
+            else:
+                # 如果线程还在运行，继续检查
+                QTimer.singleShot(100, self.check_thread_status)
 
     @pyqtSlot(str)
     def show_voice_result(self, text):
