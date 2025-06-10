@@ -143,11 +143,17 @@ class MainWindow(QMainWindow):
         self.status_label.setText(f"状态：AI写作出错：{error_msg}")
 
     def launch_gesture_module(self):
-        self.status_label.setText("状态：启动手势识别线程。")
-        if not self.gesture_thread:
+        if self.gesture_thread and self.gesture_thread.isRunning():
+            self.gesture_thread.stop()
+            self.gesture_thread = None
+            self.gesture_btn.setText("🖐️ 启动手势识别")
+            self.status_label.setText("状态：手势识别已停止。")
+        else:
             self.gesture_thread = HandGestureThread()
             self.gesture_thread.gesture_detected.connect(self.on_gesture_detected)
             self.gesture_thread.start()
+            self.gesture_btn.setText("🛑 停止手势识别")
+            self.status_label.setText("状态：手势识别已启动。")
 
     def on_gesture_detected(self, gesture_name):
         self.status_label.setText(f"手势识别结果：{gesture_name}")
