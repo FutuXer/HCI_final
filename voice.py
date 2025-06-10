@@ -84,28 +84,35 @@ class VoiceInputThread(QThread):
     def run(self):
         try:
             while self.running:
-                self.status_update.emit("正在准备录音设备...")
-                audio_file = self.record_audio()
+                try:
+                    self.status_update.emit("正在准备录音设备...")
+                    audio_file = self.record_audio()
 
-                if not self.running:
-                    break
+                    if not self.running:  # 增加额外检查点
+                        break
 
-                self.status_update.emit("🔍 正在识别语音...")
-                start_time = time.time()
+                    self.status_update.emit("🔍 正在识别语音...")
+                    start_time = time.time()
+                    text = self.recognize_audio(audio_file)
+                    processing_time = round(time.time() - start_time, 2)
 
-                text = self.recognize_audio(audio_file)
-                processing_time = round(time.time() - start_time, 2)
+                    self.status_update.emit(f"✅ 识别完成 (耗时 {processing_time}s)")
+                    self.result_ready.emit(text)
 
-                self.status_update.emit(f"✅ 识别完成 (耗时 {processing_time}s)")
-                self.result_ready.emit(text)  # 直接发射文本，不带时间戳
+                except Exception as e:
+                    if self.running:  # 只有线程仍在运行时才报告错误
+                        self.error_occurred.emit(f"⚠️ 发生错误: {str(e)}")
+                    continue
 
-        except Exception as e:
-            self.error_occurred.emit(f"⚠️ 发生错误: {str(e)}")
         finally:
             if os.path.exists(self.WAVE_OUTPUT_FILENAME):
                 os.remove(self.WAVE_OUTPUT_FILENAME)
+            self.status_update.emit("🛑 线程已完全退出")  # 调试用信息
 
     def stop(self):
         self.running = False
+        if not self.wait(5000):  # 等待5秒
+            self.terminate()  # 自动终止
         self.status_update.emit("🛑 语音识别已停止")
+        self.wait()
 

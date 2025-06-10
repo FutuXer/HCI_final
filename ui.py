@@ -1,4 +1,3 @@
-# main_ui.py
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QTextEdit, QLabel,
@@ -81,19 +80,30 @@ class MainWindow(QMainWindow):
 
     def toggle_voice_input(self):
         if self.voice_thread and self.voice_thread.isRunning():
+            # 先断开所有信号连接
+            self.voice_thread.result_ready.disconnect()
+            self.voice_thread.status_update.disconnect()
+            self.voice_thread.error_occurred.disconnect()
+
+            # 停止线程
             self.voice_thread.stop()
-            self.voice_thread = None
+            self.voice_thread = None  # 释放引用
+
             self.voice_btn.setText("🎤 开始语音输入")
             self.status_label.setText("状态：语音输入已停止")
         else:
             self.voice_thread = VoiceInputThread()
-            # 修改信号连接（适配voice.py的信号名）
             self.voice_thread.result_ready.connect(self.show_voice_result)
             self.voice_thread.status_update.connect(self.update_status)
             self.voice_thread.error_occurred.connect(self.handle_voice_error)
             self.voice_thread.start()
             self.voice_btn.setText("🛑 停止语音输入")
             self.status_label.setText("状态：正在语音识别...")
+
+    def check_thread_status(self):
+        if self.voice_thread and not self.voice_thread.isRunning():
+            self.voice_thread = None
+            self.voice_btn.setText("🎤 开始语音输入")
 
     @pyqtSlot(str)
     def show_voice_result(self, text):
