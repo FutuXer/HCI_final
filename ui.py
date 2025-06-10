@@ -2,16 +2,13 @@
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QTextEdit, QLabel,
-    QVBoxLayout, QWidget, QHBoxLayout,
+    QVBoxLayout, QWidget, QHBoxLayout, QComboBox, QMessageBox
 )
-from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtWidgets import QComboBox
-
+from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot
 from voice import VoiceInputThread
 from gesture import HandGestureThread
 from translate import baidu_translate
-from ai_writer_thread import AIWriterThread  # 加到顶部
-
+from ai_writer_thread import AIWriterThread
 
 class TranslateThread(QThread):
     result_signal = pyqtSignal(str)
@@ -29,7 +26,6 @@ class TranslateThread(QThread):
         except Exception as e:
             self.error_signal.emit(str(e))
 
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -43,7 +39,7 @@ class MainWindow(QMainWindow):
 
         self.language_selector = QComboBox()
         self.language_selector.addItems([
-            "中文（zh）", "英文（en）", "日文（jp）", "法语（fra）", "德语（de）", "俄语（ru）","韩语(kor)"
+            "中文（zh）", "英文（en）", "日文（jp）", "法语（fra）", "德语（de）", "俄语（ru）", "韩语(kor)"
         ])
 
         self.voice_btn = QPushButton("🎤 开始语音输入")
@@ -51,7 +47,6 @@ class MainWindow(QMainWindow):
         self.ai_write_btn = QPushButton("✍️ AI辅助写作")
         self.gesture_btn = QPushButton("🖐️ 启动手势识别")
 
-        # 状态标签
         self.status_label = QLabel("状态：等待中...")
 
         # ====== 布局设置 ======
@@ -92,13 +87,27 @@ class MainWindow(QMainWindow):
             self.status_label.setText("状态：语音输入已停止")
         else:
             self.voice_thread = VoiceInputThread()
-            self.voice_thread.result_signal.connect(self.show_voice_result)
+            # 修改信号连接（适配voice.py的信号名）
+            self.voice_thread.result_ready.connect(self.show_voice_result)
+            self.voice_thread.status_update.connect(self.update_status)
+            self.voice_thread.error_occurred.connect(self.handle_voice_error)
             self.voice_thread.start()
             self.voice_btn.setText("🛑 停止语音输入")
             self.status_label.setText("状态：正在语音识别...")
 
+    @pyqtSlot(str)
     def show_voice_result(self, text):
         self.text_input.append(f"[语音识别] {text}")
+
+    @pyqtSlot(str)
+    def update_status(self, message):
+        self.status_label.setText(f"状态：{message}")
+
+    @pyqtSlot(str)
+    def handle_voice_error(self, error_msg):
+        self.voice_btn.setText("🎤 开始语音输入")
+        self.status_label.setText(f"错误：{error_msg}")
+        QMessageBox.warning(self, "语音识别错误", error_msg)
 
     def ai_write(self):
         input_text = self.text_input.toPlainText().strip()
