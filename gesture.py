@@ -61,6 +61,9 @@ class HandGestureThread(QThread):
     def run(self):
         """线程运行主函数：打开摄像头并实时识别手势"""
         cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            print("Cannot open camera")
+            return
 
         while self.running:
             success, frame = cap.read()
