@@ -2,6 +2,9 @@ import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow
 from ui_main import Ui_MainWindow
 from voice import recognize_speech
+from PyQt5.QtWidgets import QSplashScreen
+from PyQt5.QtGui import QPixmap, QFont
+from PyQt5.QtCore import Qt, QTimer
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -38,10 +41,25 @@ class MainWindow(QMainWindow):
         import subprocess
         subprocess.Popen(["python", "gesture_main.py"])
 
+class SplashScreen(QSplashScreen):
+    def __init__(self):
+        pixmap = QPixmap("splash_image.png")  # 你的启动页图片路径
+        super().__init__(pixmap)
+        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
+        self.showMessage("欢迎使用 AI 辅助写作与翻译平台", Qt.AlignBottom | Qt.AlignCenter, Qt.white)
+        self.setFont(QFont("微软雅黑", 12))
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    win = MainWindow()
-    win.show()
-    sys.exit(app.exec())
+    splash = SplashScreen()
+    splash.show()
+
+    def show_main():
+        splash.close()
+        win = MainWindow()
+        win.show()
+
+    QTimer.singleShot(3000, show_main)  # 3秒后自动关闭启动页，显示主界面
+    sys.exit(app.exec_())
 
 
