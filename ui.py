@@ -2,7 +2,7 @@ import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QTextEdit, QLabel,
     QVBoxLayout, QWidget, QHBoxLayout, QComboBox, QMessageBox,
-    QFileDialog, QSplashScreen, QFrame
+    QFileDialog, QSplashScreen, QFrame, QStackedLayout
 )
 from PyQt5.QtGui import QPixmap, QFont, QIcon
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, QTimer, Qt
@@ -34,49 +34,64 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("AI 辅助写作与翻译平台")
-        self.setGeometry(100, 100, 1000, 700)
+        self.setGeometry(100, 100, 1100, 750)
         self.setWindowIcon(QIcon("app_icon.png"))
+
+        self.setWindowIcon(QIcon("icons/app_icon.ico"))
 
         self.init_ui()
         self.setStyleSheet(self.load_styles())
 
     def init_ui(self):
+        # ===== 主输入区 =====
         self.text_input = QTextEdit()
+        self.text_input.setPlaceholderText("请输入您的写作内容或翻译文本...")
+
+        # ===== 输出区（默认隐藏） =====
         self.text_output = QTextEdit()
         self.text_output.setReadOnly(True)
         self.text_output.setVisible(False)
 
-        self.expand_btn = QPushButton("🔽 显示输出区域")
+        # 展开/折叠输出按钮
+        self.expand_btn = QPushButton("🔽 显示输出")
         self.expand_btn.clicked.connect(self.toggle_output_area)
 
+        # ===== 控件组 =====
         self.language_selector = QComboBox()
         self.language_selector.addItems([
             "中文（zh）", "英文（en）", "日文（jp）", "法语（fra）",
-            "德语（de）", "俄语（ru）", "韩语(kor)"
+            "德语（de）", "俄语（ru）", "韩语（kor）"
         ])
 
         self.voice_btn = QPushButton("🎤 语音输入")
         self.translate_btn = QPushButton("🌐 翻译")
-        self.ai_write_btn = QPushButton("✍️ AI写作")
+        self.ai_write_btn = QPushButton("✍️ AI 写作")
         self.gesture_btn = QPushButton("🖐️ 手势识别")
+        self.save_btn = QPushButton("💾 保存 Word")
 
-        self.status_label = QLabel("状态：等待中...")
+        # ===== 状态提示 =====
+        self.status_label = QLabel("状态：准备就绪")
+        self.status_label.setAlignment(Qt.AlignRight)
         self.status_label.setObjectName("status_label")
 
-        controls = QHBoxLayout()
-        controls.addWidget(QLabel("目标语言:"))
-        controls.addWidget(self.language_selector)
-        controls.addWidget(self.voice_btn)
-        controls.addWidget(self.translate_btn)
-        controls.addWidget(self.ai_write_btn)
-        controls.addWidget(self.gesture_btn)
+        # ===== 操作栏布局 =====
+        controls_layout = QHBoxLayout()
+        controls_layout.addWidget(QLabel("目标语言:"))
+        controls_layout.addWidget(self.language_selector)
+        controls_layout.addStretch()
+        controls_layout.addWidget(self.voice_btn)
+        controls_layout.addWidget(self.translate_btn)
+        controls_layout.addWidget(self.ai_write_btn)
+        controls_layout.addWidget(self.gesture_btn)
+        controls_layout.addWidget(self.save_btn)
 
+        # ===== 主布局 =====
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("输入内容"))
+        layout.addWidget(QLabel("✍️ 输入区"))
         layout.addWidget(self.text_input, 4)
-        layout.addLayout(controls)
+        layout.addLayout(controls_layout)
         layout.addWidget(self.expand_btn)
-        layout.addWidget(QLabel("输出内容"))
+        layout.addWidget(QLabel("📤 输出区"))
         layout.addWidget(self.text_output, 2)
         layout.addWidget(self.status_label)
 
@@ -84,53 +99,57 @@ class MainWindow(QMainWindow):
         container.setLayout(layout)
         self.setCentralWidget(container)
 
-        self.voice_thread = None
-        self.gesture_thread = None
-
+        # ==== 信号连接 ====
         self.voice_btn.clicked.connect(self.toggle_voice_input)
         self.translate_btn.clicked.connect(self.translate_text)
         self.ai_write_btn.clicked.connect(self.ai_write)
         self.gesture_btn.clicked.connect(self.launch_gesture_module)
+        self.save_btn.clicked.connect(self.save_as_word)
+
+        self.voice_thread = None
+        self.gesture_thread = None
 
     def toggle_output_area(self):
         visible = self.text_output.isVisible()
         self.text_output.setVisible(not visible)
-        self.expand_btn.setText("🔼 隐藏输出区域" if not visible else "🔽 显示输出区域")
+        self.expand_btn.setText("🔼 隐藏输出" if not visible else "🔽 显示输出")
 
     def load_styles(self):
         return """
         QMainWindow {
-            background-color: #eef2f7;
-        }
-        QLabel {
-            font-size: 14px;
+            background-color: #f4f7fa;
         }
         QTextEdit {
             border: 1px solid #ccc;
-            background-color: #ffffff;
-            border-radius: 8px;
+            border-radius: 10px;
             padding: 10px;
-            font-size: 14px;
+            background-color: white;
+            font-size: 15px;
         }
         QPushButton {
-            background-color: #3498db;
+            background-color: #4A90E2;
             color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-weight: bold;
+            border: none;
+            padding: 8px 14px;
+            font-size: 14px;
+            border-radius: 8px;
         }
         QPushButton:hover {
-            background-color: #2980b9;
+            background-color: #357ABD;
+        }
+        QLabel {
+            font-weight: bold;
+            font-size: 14px;
         }
         QComboBox {
-            padding: 5px;
+            padding: 6px;
             font-size: 14px;
             border-radius: 6px;
         }
         QLabel#status_label {
-            color: #555;
+            color: #666;
             font-style: italic;
-            margin-top: 10px;
+            margin-top: 8px;
         }
         """
 
@@ -155,7 +174,7 @@ class MainWindow(QMainWindow):
         else:
             self.voice_thread.stop()
             self.voice_thread = None
-            self.voice_btn.setText("🎤 开始语音输入")
+            self.voice_btn.setText("🎤 语音输入")
             self.status_label.setText("状态：已停止语音识别")
 
     @pyqtSlot(str)
@@ -208,7 +227,7 @@ class MainWindow(QMainWindow):
 
     def launch_gesture_module(self):
         if self.gesture_thread is None:
-            self.status_label.setText("状态：启动手势识别中...")
+            self.status_label.setText("状态：手势识别中...")
             self.gesture_thread = HandGestureThread()
             self.gesture_thread.result_signal.connect(self.on_gesture_result)
             self.gesture_thread.start()
@@ -216,13 +235,14 @@ class MainWindow(QMainWindow):
         else:
             self.gesture_thread.stop()
             self.gesture_thread = None
-            self.gesture_btn.setText("🖐️ 启动手势识别")
-            self.status_label.setText("状态：已停止手势识别")
+            self.gesture_btn.setText("🖐️ 手势识别")
+            self.status_label.setText("状态：手势已停止")
 
     @pyqtSlot(str)
     def on_gesture_result(self, gesture):
         current = self.text_input.toPlainText()
         self.text_input.setPlainText(current + "\n[手势]：" + gesture)
+
 
 class SplashScreen(QSplashScreen):
     def __init__(self):
@@ -232,20 +252,23 @@ class SplashScreen(QSplashScreen):
         self.setFont(QFont("微软雅黑", 12))
         self.showMessage("欢迎使用 AI 辅助写作与翻译平台", Qt.AlignBottom | Qt.AlignCenter, Qt.white)
 
-win = None  # 保持引用防止被回收
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon("app_icon.png"))
+    app.setWindowIcon(QIcon("icons/app_icon.ico"))
 
-    splash = SplashScreen()
-    splash.show()
+    #splash = SplashScreen()
+    #splash.show()
 
-    def show_main():
-        global win
-        splash.close()
-        win = MainWindow()
-        win.show()
+    #def show_main():
+    #    global win
+    #    win = MainWindow()
+    #    win.show()
+    #    splash.close()
 
-    QTimer.singleShot(3000, show_main)
+    #    QTimer.singleShot(2500, show_main)
+    # 直接进入主界面
+    win = MainWindow()
+    win.show()
     sys.exit(app.exec_())
+
