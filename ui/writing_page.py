@@ -1,10 +1,13 @@
-# ui/writing_page.py
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QLabel, QTextEdit, QPushButton, QFileDialog,
+    QMessageBox, QHBoxLayout, QToolBar, QAction, QSizePolicy, QSpacerItem,
+    QListWidget, QListWidgetItem, QSplitter
+)
+from PyQt5.QtGui import QFont, QIcon, QTextCursor, QTextDocument
+from PyQt5.QtCore import Qt, pyqtSignal, QSize
+from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QTextEdit, QPushButton, QFileDialog, QMessageBox, QHBoxLayout
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QFont
 import os
-
 
 class WritingPage(QWidget):
     back_to_welcome = pyqtSignal()
@@ -43,7 +46,7 @@ class WritingPage(QWidget):
 
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(15)
+        main_layout.setSpacing(10)
 
         # 顶部标题和按钮栏
         top_bar = QHBoxLayout()
@@ -63,11 +66,119 @@ class WritingPage(QWidget):
 
         main_layout.addLayout(top_bar)
 
-        # 主要文本编辑区
+
+
+        # 编辑工具栏
+        toolbar = QToolBar("编辑工具栏")
+        toolbar.setIconSize(QSize(18, 18))
+
+        undo_action = QAction(QIcon("icons/undo.png"), "撤销", self)
+        undo_action.triggered.connect(self.undo_text)
+        toolbar.addAction(undo_action)
+
+        redo_action = QAction(QIcon("icons/redo.png"), "重做", self)
+        redo_action.triggered.connect(self.redo_text)
+        toolbar.addAction(redo_action)
+
+        docx_action = QAction(QIcon("icons/save_docx.png"), "保存为 DOCX", self)
+        docx_action.triggered.connect(self.save_as_docx)
+        toolbar.addAction(docx_action)
+
+        # 保存为 TXT
+        txt_action = QAction(QIcon("icons/txt.png"), "保存为 TXT", self)
+        txt_action.triggered.connect(self.save_as_txt)
+        toolbar.addAction(txt_action)
+
+        pdf_action = QAction(QIcon("icons/pdf.png"), "导出为 PDF", self)
+        pdf_action.triggered.connect(self.export_as_pdf)
+        toolbar.addAction(pdf_action)
+
+        insert_line_action = QAction(QIcon("icons/divide.png"), "插入分割线", self)
+        insert_line_action.triggered.connect(self.insert_divider)
+        toolbar.addAction(insert_line_action)
+
+        insert_paragraph_action = QAction(QIcon("icons/para.png"), "插入段落", self)
+        insert_paragraph_action.triggered.connect(self.insert_paragraph)
+        toolbar.addAction(insert_paragraph_action)
+
+        zoom_in_action = QAction(QIcon("icons/zoom_in.png"), "放大字体", self)
+        zoom_in_action.triggered.connect(lambda: self.text_edit.zoomIn(1))
+        toolbar.addAction(zoom_in_action)
+
+        zoom_out_action = QAction(QIcon("icons/zoom_out.png"), "缩小字体", self)
+        zoom_out_action.triggered.connect(lambda: self.text_edit.zoomOut(1))
+        toolbar.addAction(zoom_out_action)
+
+        main_layout.addWidget(toolbar)
+
+        # 文本编辑器
         self.text_edit = QTextEdit()
-        main_layout.addWidget(self.text_edit, stretch=1)
+        self.text_edit.textChanged.connect(self.update_word_count)
+        main_layout.addWidget(self.text_edit)
+
+        # 字数统计栏
+        self.word_count_label = QLabel("字数：0")
+        self.word_count_label.setAlignment(Qt.AlignRight)
+        main_layout.addWidget(self.word_count_label)
 
         self.setLayout(main_layout)
+
+    def undo_text(self):
+        self.text_edit.undo()
+
+    def redo_text(self):
+        self.text_edit.redo()
+
+    def insert_divider(self):
+        self.text_edit.insertPlainText("\n--------------------------\n")
+
+    def insert_paragraph(self):
+        self.text_edit.insertPlainText("\n新段落：\n")
+
+    def update_word_count(self):
+        text = self.text_edit.toPlainText()
+        word_count = len(text)
+        self.word_count_label.setText(f"字数：{word_count}")
+
+    def save_as_docx(self):
+        try:
+            from docx import Document
+        except ImportError:
+            QMessageBox.warning(self, "依赖缺失", "请先安装 python-docx：pip install python-docx")
+            return
+
+        content = self.text_edit.toPlainText()
+        file_path, _ = QFileDialog.getSaveFileName(self, "保存为 DOCX", "", "Word Files (*.docx)")
+        if file_path:
+            try:
+                doc = Document()
+                doc.add_paragraph(content)
+                doc.save(file_path)
+                QMessageBox.information(self, "成功", "DOCX 文件保存成功！")
+            except Exception as e:
+                QMessageBox.critical(self, "错误", f"保存失败: {str(e)}")
+
+    def export_as_pdf(self):
+        file_path, _ = QFileDialog.getSaveFileName(self, "导出为 PDF", "", "PDF Files (*.pdf)")
+        if file_path:
+            printer = QPrinter(QPrinter.HighResolution)
+            printer.setOutputFormat(QPrinter.PdfFormat)
+            printer.setOutputFileName(file_path)
+            self.text_edit.document().print_(printer)
+            QMessageBox.information(self, "导出成功", f"文件已保存为：{file_path}")
+
+    def save_as_txt(self):
+        content = self.text_edit.toPlainText()
+        file_path, _ = QFileDialog.getSaveFileName(self, "保存为 TXT", "", "Text Files (*.txt)")
+        if file_path:
+            try:
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+                QMessageBox.information(self, "成功", "TXT 文件保存成功！")
+            except Exception as e:
+                QMessageBox.critical(self, "错误", f"保存失败: {str(e)}")
+
+
 
     def load_file(self, file_path):
         """加载已有文件内容"""
@@ -95,7 +206,6 @@ class WritingPage(QWidget):
             except Exception as e:
                 QMessageBox.warning(self, "保存失败", f"无法保存文件:\n{str(e)}")
         else:
-            # 没有打开文件，弹出保存对话框
             file_path, _ = QFileDialog.getSaveFileName(self, "保存文件", "", "文本文件 (*.txt)")
             if file_path:
                 try:
@@ -108,3 +218,24 @@ class WritingPage(QWidget):
                     QMessageBox.warning(self, "保存失败", f"无法保存文件:\n{str(e)}")
             else:
                 QMessageBox.information(self, "保存取消", "文件未保存。")
+
+    def generate_table_of_contents(self):
+        self.toc_list.clear()
+        self.heading_positions = []
+
+        doc = self.text_input.document()
+        block = doc.firstBlock()
+        while block.isValid():
+            text = block.text()
+            if text.startswith("#") or text.startswith("第") and "章" in text:
+                item = QListWidgetItem(text)
+                self.toc_list.addItem(item)
+                self.heading_positions.append(block.position())
+            block = block.next()
+
+    def scroll_to_heading(self, item):
+        index = self.toc_list.row(item)
+        position = self.heading_positions[index]
+        cursor = self.text_input.textCursor()
+        cursor.setPosition(position)
+        self.text_input.setTextCursor(cursor)

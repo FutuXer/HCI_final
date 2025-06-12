@@ -5,6 +5,7 @@ from PyQt5.QtCore import pyqtSignal, Qt
 class WelcomePage(QWidget):
     start_creation = pyqtSignal()
     open_txt_file = pyqtSignal()
+    open_docx_file = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -41,7 +42,7 @@ class WelcomePage(QWidget):
         """
 
         # 开始创作按钮
-        create_btn = QPushButton("📝 开始创作")
+        create_btn = QPushButton("📝     开始创作     ")
         create_btn.setStyleSheet(button_style)
         create_btn.clicked.connect(self.start_creation.emit)
         layout.addWidget(create_btn, alignment=Qt.AlignCenter)
@@ -52,8 +53,14 @@ class WelcomePage(QWidget):
         open_btn.clicked.connect(self.open_txt_file.emit)
         layout.addWidget(open_btn, alignment=Qt.AlignCenter)
 
+        # 👉 打开 DOCX 文件按钮
+        open_docx_btn = QPushButton("📄  打开本地DOCX文件")
+        open_docx_btn.setStyleSheet(button_style)
+        open_docx_btn.clicked.connect(self.open_docx_file.emit)
+        layout.addWidget(open_docx_btn, alignment=Qt.AlignCenter)
+
         # 退出按钮
-        exit_btn = QPushButton("❌ 退出程序")
+        exit_btn = QPushButton("❌     退出程序     ")
         exit_btn.setStyleSheet(button_style)
         exit_btn.clicked.connect(self.close_app)
         layout.addWidget(exit_btn, alignment=Qt.AlignCenter)

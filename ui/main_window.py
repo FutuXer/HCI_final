@@ -1,5 +1,5 @@
 # ui/main_window.py
-
+import os
 from PyQt5.QtWidgets import QMainWindow, QStackedWidget, QFileDialog, QMessageBox
 from PyQt5.QtCore import Qt
 from ui.welcome_page import WelcomePage
@@ -29,7 +29,7 @@ class MainWindow(QMainWindow):
         # 信号连接
         self.welcome_page.start_creation.connect(self.show_writing_page_new)
         self.welcome_page.open_txt_file.connect(self.show_writing_page_open)
-
+        self.welcome_page.open_docx_file.connect(self.open_docx_file)
         self.writing_page.back_to_welcome.connect(self.show_welcome_page)
 
     def show_welcome_page(self):
@@ -51,3 +51,23 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.information(self, "打开取消", "没有选择任何文件。")
 
+    # 添加新的方法
+    def open_docx_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "打开DOCX文件 ", "", "Word 文档 (*.docx)")
+        if file_path:
+            try:
+                from docx import Document
+            except ImportError:
+                QMessageBox.warning(self, "依赖缺失", "请先安装 python-docx：pip install python-docx")
+                return
+
+            try:
+                doc = Document(file_path)
+                content = "\n".join([para.text for para in doc.paragraphs])
+                self.writing_page.load_file(None)  # 清空状态
+                self.writing_page.text_edit.setPlainText(content)
+                self.writing_page.current_file_path = None
+                self.writing_page.title_label.setText(f"导入 DOCX: {os.path.basename(file_path)}")
+                self.stack.setCurrentWidget(self.writing_page)
+            except Exception as e:
+                QMessageBox.critical(self, "打开失败", f"无法读取文件：\n{str(e)}")
