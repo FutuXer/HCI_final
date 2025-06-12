@@ -5,7 +5,7 @@ from ui.main_window import MainWindow
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setApplicationName("Gesture Interactive System")
+    app.setApplicationName("低能AI辅助写作平台")
     app.setWindowIcon(QIcon("icons/app_icon.ico"))
 
     window = MainWindow()

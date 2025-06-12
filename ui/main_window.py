@@ -1,44 +1,53 @@
-from PyQt5.QtWidgets import QMainWindow, QStackedWidget, QWidget, QVBoxLayout, QToolBar, QAction
-from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import QSize
+# ui/main_window.py
 
+from PyQt5.QtWidgets import QMainWindow, QStackedWidget, QFileDialog, QMessageBox
+from PyQt5.QtCore import Qt
 from ui.welcome_page import WelcomePage
 from ui.writing_page import WritingPage
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Gesture Interactive System")
-        self.setMinimumSize(1024, 768)
+        self.setWindowTitle("低能写作平台")
+        self.resize(900, 600)
 
-        self.central_stack = QStackedWidget()
-        self.setCentralWidget(self.central_stack)
+        self.stacked_widget = QStackedWidget()
+        self.setCentralWidget(self.stacked_widget)
 
-        # 页面初始化
-        self.welcome_page = WelcomePage(self)
-        self.writing_page = WritingPage(self)
+        # 初始化两个页面
+        self.welcome_page = WelcomePage()
+        self.writing_page = WritingPage()
 
-        # 添加页面到stack
-        self.central_stack.addWidget(self.welcome_page)  # index 0
-        self.central_stack.addWidget(self.writing_page)  # index 1
+        # 添加到堆栈控件
+        self.stacked_widget.addWidget(self.welcome_page)   # index 0
+        self.stacked_widget.addWidget(self.writing_page)   # index 1
 
-        # 初始化菜单栏或工具栏
-        self.init_toolbar()
+        # 默认显示欢迎页
+        self.stacked_widget.setCurrentIndex(0)
 
-        # 初始显示欢迎页
-        self.central_stack.setCurrentIndex(0)
+        # 信号连接
+        self.welcome_page.start_creation.connect(self.show_writing_page_new)
+        self.welcome_page.open_txt_file.connect(self.show_writing_page_open)
 
-    def init_toolbar(self):
-        toolbar = QToolBar("主菜单")
-        toolbar.setIconSize(QSize(24, 24))
-        self.addToolBar(toolbar)
+        self.writing_page.back_to_welcome.connect(self.show_welcome_page)
 
-        home_action = QAction(QIcon("icons/app_icon.ico"), "欢迎页", self)
-        home_action.triggered.connect(lambda: self.central_stack.setCurrentIndex(0))
-        toolbar.addAction(home_action)
+    def show_welcome_page(self):
+        self.stacked_widget.setCurrentIndex(0)
+        # 清理写作页内容（选项）
+        self.writing_page.text_edit.clear()
+        self.writing_page.current_file_path = None
+        self.writing_page.title_label.setText("新建写作项目")
 
-        write_action = QAction(QIcon("icons/ai.png"), "写作", self)
-        write_action.triggered.connect(lambda: self.central_stack.setCurrentIndex(1))
-        toolbar.addAction(write_action)
+    def show_writing_page_new(self):
+        self.stacked_widget.setCurrentIndex(1)
+        self.writing_page.load_file(None)  # 新建写作，不加载文件
 
-        # 预留接口：可添加翻译、语音、手势等
+    def show_writing_page_open(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "打开文本文件", "", "文本文件 (*.txt)")
+        if file_path:
+            self.stacked_widget.setCurrentIndex(1)
+            self.writing_page.load_file(file_path)
+        else:
+            QMessageBox.information(self, "打开取消", "没有选择任何文件。")
+

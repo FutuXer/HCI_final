@@ -1,67 +1,68 @@
-# ui/welcome_page.py
-
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QFileDialog, QMessageBox
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QSpacerItem, QSizePolicy
+from PyQt5.QtCore import pyqtSignal, Qt
 
 
 class WelcomePage(QWidget):
-    start_new_writing = pyqtSignal()
-    open_existing_file = pyqtSignal(str)
-    exit_app = pyqtSignal()
+    start_creation = pyqtSignal()
+    open_txt_file = pyqtSignal()
 
-    def __init__(self, parent=None):  # 👈 接收 parent 参数
+    def __init__(self, parent=None):
         super().__init__(parent)
         self.init_ui()
 
     def init_ui(self):
-        self.setStyleSheet("""
-            QLabel#titleLabel {
-                font-size: 28px;
-                font-weight: bold;
-                color: #2c3e50;
-            }
-
-            QPushButton {
-                font-size: 16px;
-                padding: 10px;
-                border-radius: 6px;
-                background-color: #3498db;
-                color: white;
-            }
-
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
-        """)
-
+        # 设置整体布局
         layout = QVBoxLayout()
+        layout.setContentsMargins(60, 60, 60, 60)
+        layout.setSpacing(30)
         layout.setAlignment(Qt.AlignCenter)
 
-        self.title = QLabel("欢迎使用智能写作系统")
-        self.title.setObjectName("titleLabel")
-        self.title.setAlignment(Qt.AlignCenter)
+        # 标题
+        title = QLabel("欢迎使用交互式写作平台")
+        title.setStyleSheet("font-size: 28px; font-weight: bold; color: #333;")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
 
-        self.start_button = QPushButton("📝 开始创作")
-        self.start_button.clicked.connect(self.start_new_writing.emit)
+        # Spacer让按钮整体垂直居中
+        layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
-        self.open_button = QPushButton("📂 打开已有文件")
-        self.open_button.clicked.connect(self.select_existing_file)
+        # 按钮样式统一定义
+        button_style = """
+            QPushButton {
+                font-size: 18px;
+                padding: 12px 24px;
+                border: 2px solid #555;
+                border-radius: 8px;
+                background-color: #f0f0f0;
+            }
+            QPushButton:hover {
+                background-color: #d0e8ff;
+            }
+        """
 
-        self.exit_button = QPushButton("❌ 退出")
-        self.exit_button.clicked.connect(self.exit_app.emit)
+        # 开始创作按钮
+        create_btn = QPushButton("📝 开始创作")
+        create_btn.setStyleSheet(button_style)
+        create_btn.clicked.connect(self.start_creation.emit)
+        layout.addWidget(create_btn, alignment=Qt.AlignCenter)
 
-        layout.addWidget(self.title)
-        layout.addSpacing(30)
-        layout.addWidget(self.start_button)
-        layout.addWidget(self.open_button)
-        layout.addWidget(self.exit_button)
+        # 打开文件按钮
+        open_btn = QPushButton("📂 打开本地 TXT 文件")
+        open_btn.setStyleSheet(button_style)
+        open_btn.clicked.connect(self.open_txt_file.emit)
+        layout.addWidget(open_btn, alignment=Qt.AlignCenter)
+
+        # 退出按钮
+        exit_btn = QPushButton("❌ 退出程序")
+        exit_btn.setStyleSheet(button_style)
+        exit_btn.clicked.connect(self.close_app)
+        layout.addWidget(exit_btn, alignment=Qt.AlignCenter)
+
+        # Spacer 底部
+        layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
         self.setLayout(layout)
 
-    def select_existing_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "选择文本文件", "", "Text Files (*.txt)")
-        if file_path:
-            self.open_existing_file.emit(file_path)
-        else:
-            QMessageBox.information(self, "提示", "没有选择文件。")
+    def close_app(self):
+        from PyQt5.QtWidgets import QApplication
+        QApplication.quit()
