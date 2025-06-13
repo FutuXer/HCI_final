@@ -1,9 +1,13 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QTextEdit, QPushButton, QFileDialog,
     QMessageBox, QHBoxLayout, QToolBar, QAction, QSizePolicy, QSpacerItem,
+<<<<<<< Updated upstream
     QListWidget, QListWidgetItem, QSplitter
+=======
+    QListWidget, QListWidgetItem, QSplitter, QDialog
+>>>>>>> Stashed changes
 )
-from PyQt5.QtGui import QFont, QIcon, QTextCursor, QTextDocument
+from PyQt5.QtGui import QFont, QIcon, QTextCursor, QTextDocument, QMovie
 from PyQt5.QtCore import Qt, pyqtSignal, QSize
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 
@@ -52,7 +56,7 @@ class WritingPage(QWidget):
 
         # 顶部标题和按钮栏
         top_bar = QHBoxLayout()
-        self.title_label = QLabel("新建写作项目")
+        self.title_label = QLabel("    新建写作项目")
         self.title_label.setObjectName("titleLabel")
 
         self.toggle_toc_btn = QPushButton("收起目录栏")
@@ -137,6 +141,14 @@ class WritingPage(QWidget):
         self.word_count_label = QLabel("字数：0")
         self.word_count_label.setAlignment(Qt.AlignRight)
         main_layout.addWidget(self.word_count_label)
+
+        # 沙漏
+        self.loading_label = QLabel(self)
+        self.loading_movie = QMovie("icons/busy.gif")
+        self.loading_label.setMovie(self.loading_movie)
+        self.loading_label.setFixedSize(64, 64)  # 可根据实际调整
+        self.loading_label.setScaledContents(True)
+        self.loading_label.hide()
 
         self.setLayout(main_layout)
 
@@ -281,4 +293,60 @@ class WritingPage(QWidget):
                     f.write(html_text)
                 QMessageBox.information(self, "成功", "已成功导出为 HTML 文件")
             except Exception as e:
+<<<<<<< Updated upstream
                 QMessageBox.warning(self, "错误", f"导出失败: {str(e)}")
+=======
+                QMessageBox.warning(self, "错误", f"导出失败: {str(e)}")
+
+    def call_ai_writer(self, mode):
+        from ai_writer_thread import AIWriterThread
+        cursor = self.text_edit.textCursor()
+        prompt = cursor.selectedText().strip()
+        if not prompt:
+            QMessageBox.warning(self, "提示", "请先选中需要处理的文字")
+            return
+        self.setEnabled(False)
+        self.statusBarMessage(f"AI 正在{mode}中...")
+        self.show_loading()  # ✅ 显示沙漏
+
+        self.ai_thread = AIWriterThread(mode, prompt)  # 注意顺序：模式，内容
+        self.ai_thread.result_signal.connect(self.insert_ai_result)
+        self.ai_thread.error_signal.connect(self.show_ai_error)
+        self.ai_thread.start()
+
+    def run_ai_task(self, text, mode):
+        self.setEnabled(False)
+        self.statusBarMessage(f"AI 正在{mode}中...")
+        self.show_loading()  # ✅ 显示沙漏
+
+        self.ai_thread = AIWriterThread(text, mode)  # 传入模式
+        self.ai_thread.result_signal.connect(self.insert_ai_result)
+        self.ai_thread.error_signal.connect(self.show_ai_error)
+        self.ai_thread.start()
+
+    def insert_ai_result(self, result):
+        self.hide_loading()  # ✅ 隐藏沙漏
+        dialog = AIResultDialog(result, self)
+        dialog.exec_()
+
+        self.statusBarMessage("AI 处理完成 ✅")
+        self.setEnabled(True)
+
+    def show_ai_error(self, error_msg):
+        self.hide_loading()  # ✅ 隐藏沙漏
+        QMessageBox.warning(self, "AI 处理出错", error_msg)
+        self.statusBarMessage("AI 处理失败 ❌")
+        self.setEnabled(True)
+
+    def statusBarMessage(self, message):
+        self.word_count_label.setText(f"{message} | 当前字数：{len(self.text_edit.toPlainText())}")
+
+    #沙漏显示隐藏
+    def show_loading(self):
+        self.loading_label.show()
+        self.loading_movie.start()
+
+    def hide_loading(self):
+        self.loading_label.hide()
+        self.loading_movie.stop()
+>>>>>>> Stashed changes
