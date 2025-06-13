@@ -1,15 +1,15 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QTextEdit, QPushButton, QFileDialog,
     QMessageBox, QHBoxLayout, QToolBar, QAction, QSizePolicy, QSpacerItem,
-<<<<<<< Updated upstream
-    QListWidget, QListWidgetItem, QSplitter
-=======
-    QListWidget, QListWidgetItem, QSplitter, QDialog
->>>>>>> Stashed changes
+    QListWidget, QListWidgetItem, QSplitter, QDialog,
 )
 from PyQt5.QtGui import QFont, QIcon, QTextCursor, QTextDocument, QMovie
 from PyQt5.QtCore import Qt, pyqtSignal, QSize
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
+from PyQt5.QtWidgets import QMessageBox
+
+from ai_writer_thread import AIWriterThread
+from ui.ai_page import AIResultDialog
 
 import os
 import re
@@ -56,7 +56,7 @@ class WritingPage(QWidget):
 
         # 顶部标题和按钮栏
         top_bar = QHBoxLayout()
-        self.title_label = QLabel("    新建写作项目")
+        self.title_label = QLabel("新建写作项目")
         self.title_label.setObjectName("titleLabel")
 
         self.toggle_toc_btn = QPushButton("收起目录栏")
@@ -134,21 +134,30 @@ class WritingPage(QWidget):
         zoom_out_action.triggered.connect(lambda: self.text_edit.zoomOut(1))
         toolbar.addAction(zoom_out_action)
 
+        # AI扩写按钮
+        expand_action = QAction(QIcon("icons/expand.png"), "AI 扩写", self)
+        expand_action.triggered.connect(lambda: self.call_ai_writer("扩写"))
+        toolbar.addAction(expand_action)
+
+        polish_action = QAction(QIcon("icons/polish.png"), "AI 润色", self)
+        polish_action.triggered.connect(lambda: self.call_ai_writer("润色"))
+        toolbar.addAction(polish_action)
+
         main_layout.addWidget(toolbar)
         main_layout.addWidget(self.splitter, stretch=1)  # 给splitter一个拉伸因子1
+
+        # 沙漏动画初始化
+        self.loading_label = QLabel(self)
+        self.loading_movie = QMovie("icons/busy.gif")
+        self.loading_label.setMovie(self.loading_movie)
+        self.loading_label.setFixedSize(64, 64)
+        self.loading_label.setScaledContents(True)
+        self.loading_label.hide()
 
         # 字数统计
         self.word_count_label = QLabel("字数：0")
         self.word_count_label.setAlignment(Qt.AlignRight)
         main_layout.addWidget(self.word_count_label)
-
-        # 沙漏
-        self.loading_label = QLabel(self)
-        self.loading_movie = QMovie("icons/busy.gif")
-        self.loading_label.setMovie(self.loading_movie)
-        self.loading_label.setFixedSize(64, 64)  # 可根据实际调整
-        self.loading_label.setScaledContents(True)
-        self.loading_label.hide()
 
         self.setLayout(main_layout)
 
@@ -293,9 +302,6 @@ class WritingPage(QWidget):
                     f.write(html_text)
                 QMessageBox.information(self, "成功", "已成功导出为 HTML 文件")
             except Exception as e:
-<<<<<<< Updated upstream
-                QMessageBox.warning(self, "错误", f"导出失败: {str(e)}")
-=======
                 QMessageBox.warning(self, "错误", f"导出失败: {str(e)}")
 
     def call_ai_writer(self, mode):
@@ -305,10 +311,7 @@ class WritingPage(QWidget):
         if not prompt:
             QMessageBox.warning(self, "提示", "请先选中需要处理的文字")
             return
-        self.setEnabled(False)
-        self.statusBarMessage(f"AI 正在{mode}中...")
         self.show_loading()  # ✅ 显示沙漏
-
         self.ai_thread = AIWriterThread(mode, prompt)  # 注意顺序：模式，内容
         self.ai_thread.result_signal.connect(self.insert_ai_result)
         self.ai_thread.error_signal.connect(self.show_ai_error)
@@ -318,7 +321,6 @@ class WritingPage(QWidget):
         self.setEnabled(False)
         self.statusBarMessage(f"AI 正在{mode}中...")
         self.show_loading()  # ✅ 显示沙漏
-
         self.ai_thread = AIWriterThread(text, mode)  # 传入模式
         self.ai_thread.result_signal.connect(self.insert_ai_result)
         self.ai_thread.error_signal.connect(self.show_ai_error)
@@ -341,12 +343,10 @@ class WritingPage(QWidget):
     def statusBarMessage(self, message):
         self.word_count_label.setText(f"{message} | 当前字数：{len(self.text_edit.toPlainText())}")
 
-    #沙漏显示隐藏
     def show_loading(self):
         self.loading_label.show()
         self.loading_movie.start()
 
     def hide_loading(self):
-        self.loading_label.hide()
         self.loading_movie.stop()
->>>>>>> Stashed changes
+        self.loading_label.hide()
