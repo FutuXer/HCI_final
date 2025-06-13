@@ -8,14 +8,16 @@ from PyQt5.QtCore import Qt, pyqtSignal, QSize
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
 
 import os
+import re
 
 class WritingPage(QWidget):
     back_to_welcome = pyqtSignal()
-    save_file = pyqtSignal(str, str)  # (filepath, content)
+    save_file = pyqtSignal(str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_file_path = None
+        self.heading_positions = []
         self.init_ui()
 
     def init_ui(self):
@@ -53,6 +55,9 @@ class WritingPage(QWidget):
         self.title_label = QLabel("新建写作项目")
         self.title_label.setObjectName("titleLabel")
 
+        self.toggle_toc_btn = QPushButton("收起目录栏")
+        self.toggle_toc_btn.clicked.connect(self.toggle_toc)
+
         self.save_btn = QPushButton("保存")
         self.save_btn.clicked.connect(self.save_content)
 
@@ -61,16 +66,29 @@ class WritingPage(QWidget):
 
         top_bar.addWidget(self.title_label)
         top_bar.addStretch()
+        top_bar.addWidget(self.toggle_toc_btn)
         top_bar.addWidget(self.save_btn)
         top_bar.addWidget(self.back_btn)
-
         main_layout.addLayout(top_bar)
 
+        # 中部区域：目录栏 + 文本编辑
+        self.splitter = QSplitter(Qt.Horizontal)
 
+        self.toc_list = QListWidget()
+        self.toc_list.setMaximumWidth(220)
+        self.toc_list.setStyleSheet("font-size: 13px;")
+        self.toc_list.itemClicked.connect(self.scroll_to_heading)
 
-        # 编辑工具栏
+        self.text_edit = QTextEdit()
+        self.text_edit.textChanged.connect(self.update_word_count)
+
+        self.splitter.addWidget(self.toc_list)
+        self.splitter.addWidget(self.text_edit)
+        self.splitter.setStretchFactor(1, 1)
+
+        # 工具栏
         toolbar = QToolBar("编辑工具栏")
-        toolbar.setIconSize(QSize(18, 18))
+        toolbar.setIconSize(QSize(25, 25))
 
         undo_action = QAction(QIcon("icons/undo.png"), "撤销", self)
         undo_action.triggered.connect(self.undo_text)
@@ -84,7 +102,6 @@ class WritingPage(QWidget):
         docx_action.triggered.connect(self.save_as_docx)
         toolbar.addAction(docx_action)
 
-        # 保存为 TXT
         txt_action = QAction(QIcon("icons/txt.png"), "保存为 TXT", self)
         txt_action.triggered.connect(self.save_as_txt)
         toolbar.addAction(txt_action)
@@ -92,6 +109,10 @@ class WritingPage(QWidget):
         pdf_action = QAction(QIcon("icons/pdf.png"), "导出为 PDF", self)
         pdf_action.triggered.connect(self.export_as_pdf)
         toolbar.addAction(pdf_action)
+
+        html_action = QAction(QIcon("icons/html.png"), "导出为 HTML", self)
+        html_action.triggered.connect(self.save_as_html)
+        toolbar.addAction(html_action)
 
         insert_line_action = QAction(QIcon("icons/divide.png"), "插入分割线", self)
         insert_line_action.triggered.connect(self.insert_divider)
@@ -110,18 +131,22 @@ class WritingPage(QWidget):
         toolbar.addAction(zoom_out_action)
 
         main_layout.addWidget(toolbar)
+        main_layout.addWidget(self.splitter, stretch=1)  # 给splitter一个拉伸因子1
 
-        # 文本编辑器
-        self.text_edit = QTextEdit()
-        self.text_edit.textChanged.connect(self.update_word_count)
-        main_layout.addWidget(self.text_edit)
-
-        # 字数统计栏
+        # 字数统计
         self.word_count_label = QLabel("字数：0")
         self.word_count_label.setAlignment(Qt.AlignRight)
         main_layout.addWidget(self.word_count_label)
 
         self.setLayout(main_layout)
+
+    def toggle_toc(self):
+        if self.toc_list.isVisible():
+            self.toc_list.hide()
+            self.toggle_toc_btn.setText("展开目录栏")
+        else:
+            self.toc_list.show()
+            self.toggle_toc_btn.setText("收起目录栏")
 
     def undo_text(self):
         self.text_edit.undo()
@@ -139,6 +164,9 @@ class WritingPage(QWidget):
         text = self.text_edit.toPlainText()
         word_count = len(text)
         self.word_count_label.setText(f"字数：{word_count}")
+
+        # 每次文本改动都更新目录
+        self.generate_table_of_contents()
 
     def save_as_docx(self):
         try:
@@ -178,10 +206,7 @@ class WritingPage(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "错误", f"保存失败: {str(e)}")
 
-
-
     def load_file(self, file_path):
-        """加载已有文件内容"""
         if file_path and os.path.isfile(file_path):
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
@@ -223,11 +248,17 @@ class WritingPage(QWidget):
         self.toc_list.clear()
         self.heading_positions = []
 
-        doc = self.text_input.document()
+        doc = self.text_edit.document()
         block = doc.firstBlock()
+
+        # 编译正则表达式
+        pattern_chinese_num = re.compile(r'^[一二三四五六七八九十]+[、.]')
+        pattern_english_num = re.compile(r'^\d+(\.\d+)*')
+        pattern_chapter = re.compile(r'^第[一二三四五六七八九十\d]+章')
+
         while block.isValid():
-            text = block.text()
-            if text.startswith("#") or text.startswith("第") and "章" in text:
+            text = block.text().strip()
+            if pattern_chinese_num.match(text) or pattern_english_num.match(text) or pattern_chapter.match(text):
                 item = QListWidgetItem(text)
                 self.toc_list.addItem(item)
                 self.heading_positions.append(block.position())
@@ -235,7 +266,19 @@ class WritingPage(QWidget):
 
     def scroll_to_heading(self, item):
         index = self.toc_list.row(item)
-        position = self.heading_positions[index]
-        cursor = self.text_input.textCursor()
-        cursor.setPosition(position)
-        self.text_input.setTextCursor(cursor)
+        if index < len(self.heading_positions):
+            position = self.heading_positions[index]
+            cursor = self.text_edit.textCursor()
+            cursor.setPosition(position)
+            self.text_edit.setTextCursor(cursor)
+
+    def save_as_html(self):
+        html_text = self.text_edit.toHtml()
+        file_path, _ = QFileDialog.getSaveFileName(self, "导出为 HTML", "", "HTML 文件 (*.html)")
+        if file_path:
+            try:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(html_text)
+                QMessageBox.information(self, "成功", "已成功导出为 HTML 文件")
+            except Exception as e:
+                QMessageBox.warning(self, "错误", f"导出失败: {str(e)}")
