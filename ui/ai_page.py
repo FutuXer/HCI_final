@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton, QHBoxLayout
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton, QHBoxLayout, QApplication, QToolTip
 class AIResultDialog(QDialog):
     def __init__(self, result_text, parent=None):
         super().__init__(parent)
@@ -24,5 +24,10 @@ class AIResultDialog(QDialog):
         layout.addLayout(btn_layout)
 
     def copy_text(self):
-        clipboard = self.text_edit.clipboard()
+        clipboard = QApplication.clipboard()
         clipboard.setText(self.text_edit.toPlainText())
+
+    def copy_text(self):
+        clipboard = QApplication.clipboard()
+        clipboard.setText(self.text_edit.toPlainText())
+        QToolTip.showText(self.copy_btn.mapToGlobal(self.copy_btn.rect().center()), "复制成功 ✅", self.copy_btn)
