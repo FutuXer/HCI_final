@@ -1,6 +1,7 @@
 import cv2
 import mediapipe as mp
 from PyQt5.QtCore import QThread, pyqtSignal
+import time
 
 class HandGestureThread(QThread):
     gesture_detected = pyqtSignal(str)
@@ -17,36 +18,34 @@ class HandGestureThread(QThread):
         self.mp_drawing = mp.solutions.drawing_utils
         self.running = True
 
+        # 多帧缓冲区，保存最近识别的手势
+        self.gesture_buffer = []
+        self.buffer_size = 5  # 连续5帧稳定
+
+        # 节流控制
+        self.last_gesture = None
+        self.last_trigger_time = 0
+        self.trigger_interval = 0.5  # 0.5秒
+
     def detect_gesture(self, landmarks, is_right=True):
-        """通过关键点判断手势，加入左右手区分"""
         if not landmarks:
             return "No Hand"
 
         tips_ids = [4, 8, 12, 16, 20]
         fingers = []
 
-        # 修正拇指判断：右手朝左，左手朝右
+        # 拇指判断，左右手不同
         if is_right:
-            if landmarks[tips_ids[0]].x < landmarks[tips_ids[0] - 1].x:
-                fingers.append(1)
-            else:
-                fingers.append(0)
+            fingers.append(1 if landmarks[tips_ids[0]].x < landmarks[tips_ids[0] - 1].x else 0)
         else:
-            if landmarks[tips_ids[0]].x > landmarks[tips_ids[0] - 1].x:
-                fingers.append(1)
-            else:
-                fingers.append(0)
+            fingers.append(1 if landmarks[tips_ids[0]].x > landmarks[tips_ids[0] - 1].x else 0)
 
-        # 其余四指：y坐标判断
+        # 其余4指，根据y坐标判断是否伸出
         for i in range(1, 5):
-            if landmarks[tips_ids[i]].y < landmarks[tips_ids[i] - 2].y:
-                fingers.append(1)
-            else:
-                fingers.append(0)
+            fingers.append(1 if landmarks[tips_ids[i]].y < landmarks[tips_ids[i] - 2].y else 0)
 
         total_fingers = sum(fingers)
 
-        # 简单手势分类
         if fingers == [0, 1, 0, 0, 0]:
             return "Index Finger"
         elif fingers == [0, 1, 1, 0, 0]:
@@ -89,10 +88,27 @@ class HandGestureThread(QThread):
                     self.mp_drawing.draw_landmarks(frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
                     gesture_name = self.detect_gesture(hand_landmarks.landmark, is_right)
 
-            self.gesture_detected.emit(gesture_name)
+            # 添加到缓冲区
+            self.gesture_buffer.append(gesture_name)
+            if len(self.gesture_buffer) > self.buffer_size:
+                self.gesture_buffer.pop(0)
 
-            # 显示窗口（调试用）
-            cv2.putText(frame, gesture_name, (10, 40),
+            # 判断缓冲区中是否连续稳定
+            stable_gesture = None
+            for g in set(self.gesture_buffer):
+                if self.gesture_buffer.count(g) >= self.buffer_size * 0.8:
+                    stable_gesture = g
+                    break
+
+            # 节流判断，间隔够才发信号
+            now = time.time()
+            if stable_gesture and stable_gesture != self.last_gesture and (now - self.last_trigger_time) > self.trigger_interval:
+                self.gesture_detected.emit(stable_gesture)
+                self.last_gesture = stable_gesture
+                self.last_trigger_time = now
+
+            # 调试显示
+            cv2.putText(frame, stable_gesture or gesture_name, (10, 40),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             cv2.imshow("Gesture Recognition", frame)
 
@@ -104,5 +120,4 @@ class HandGestureThread(QThread):
 
     def stop(self):
         self.running = False
-        self.quit()
         self.wait()

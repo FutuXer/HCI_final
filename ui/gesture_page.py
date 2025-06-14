@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QLabel, QPushButton,
                              QHBoxLayout, QTextEdit, QApplication)
 from PyQt5.QtCore import Qt, pyqtSignal
 from gesture import HandGestureThread
+import time
 
 
 class GestureControlDialog(QDialog):
@@ -17,6 +18,10 @@ class GestureControlDialog(QDialog):
         self.gesture_thread.gesture_detected.connect(self.handle_gesture)
 
         self.init_ui()
+
+        self.last_gesture = None
+        self.last_gesture_time = 0
+        self.gesture_cooldown = 2  # 2秒冷却，防止连续触发
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -74,36 +79,45 @@ class GestureControlDialog(QDialog):
         self.log_message("手势检测已停止")
 
     def handle_gesture(self, gesture):
-        self.gesture_label.setText(gesture)
+        now = time.time()
 
-        if not self.parent():
-            return
+        # 手势变化或冷却时间到，才处理
+        if gesture != self.last_gesture or (now - self.last_gesture_time) > self.gesture_cooldown:
+            self.last_gesture = gesture
+            self.last_gesture_time = now
 
-        text_edit = self.parent().text_edit
-        cursor = text_edit.textCursor()
+            self.gesture_label.setText(gesture)
 
-        if gesture == "Index Finger":
-            # Move cursor to current position (handled by mouse)
-            self.log_message("食指手势: 准备输入")
+            if not self.parent():
+                return
 
-        elif gesture == "Scissor":
-            if cursor.hasSelection():
+            text_edit = self.parent().text_edit
+            cursor = text_edit.textCursor()
+
+            if gesture == "Index Finger":
+                self.log_message("食指手势: 准备输入")
+
+            elif gesture == "Scissor":
+                if cursor.hasSelection():
+                    clipboard = QApplication.clipboard()
+                    clipboard.setText(cursor.selectedText())
+                    self.log_message("剪刀手势: 已复制选中文本")
+
+            elif gesture == "Fist":
                 clipboard = QApplication.clipboard()
-                clipboard.setText(cursor.selectedText())
-                self.log_message("剪刀手势: 已复制选中文本")
+                text_edit.insertPlainText(clipboard.text())
+                self.log_message("拳头手势: 已粘贴文本")
 
-        elif gesture == "Fist":
-            clipboard = QApplication.clipboard()
-            text_edit.insertPlainText(clipboard.text())
-            self.log_message("拳头手势: 已粘贴文本")
+            elif gesture == "Open Palm":
+                self.parent().save_content()
+                self.log_message("张开手掌: 已保存文档")
 
-        elif gesture == "Open Palm":
-            self.parent().save_content()
-            self.log_message("张开手掌: 已保存文档")
-
-        elif gesture == "Rock Gesture":
-            self.parent().back_to_welcome.emit()
-            self.log_message("摇滚手势: 返回欢迎页")
+            elif gesture == "Rock Gesture":
+                self.parent().back_to_welcome.emit()
+                self.log_message("摇滚手势: 返回欢迎页")
+        else:
+            # 冷却期内忽略重复手势
+            pass
 
     def log_message(self, message):
         self.log_edit.append(message)

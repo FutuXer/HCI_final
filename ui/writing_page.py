@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import QMessageBox
 
 from ai_writer_thread import AIWriterThread
 from ui.ai_page import AIResultDialog
+from ui.translate_page import TranslatePage
 
 import os
 import re
@@ -144,11 +145,17 @@ class WritingPage(QWidget):
         gesture_action.triggered.connect(self.show_gesture_dialog)
         toolbar.addAction(gesture_action)
 
+        # 翻译
+        translate_action = QAction(QIcon("icons/translate.png"), "翻译", self)
+        translate_action.triggered.connect(self.open_translate_page)
+        toolbar.addAction(translate_action)
+
         # AI扩写按钮
         expand_action = QAction(QIcon("icons/expand.png"), "AI 扩写", self)
         expand_action.triggered.connect(lambda: self.call_ai_writer("扩写"))
         toolbar.addAction(expand_action)
 
+        # AI润色按钮
         polish_action = QAction(QIcon("icons/polish.png"), "AI 润色", self)
         polish_action.triggered.connect(lambda: self.call_ai_writer("润色"))
         toolbar.addAction(polish_action)
@@ -338,30 +345,27 @@ class WritingPage(QWidget):
 
     def show_voice_dialog(self):
         try:
-            # 延迟导入关键模块
             from ui.voice_page import VoiceInputDialog
             import pyaudio
-            # 测试音频设备
             p = pyaudio.PyAudio()
             p.terminate()
 
-            dialog = VoiceInputDialog(self)
-            dialog.exec_()
+            self.voice_dialog = VoiceInputDialog(self)  # 保存引用
+            self.voice_dialog.show()  # 非模态显示
         except Exception as e:
             QMessageBox.critical(self, "音频初始化失败",
-                                 f"无法启动语音输入:\n{str(e)}\n"
-                                 f"请检查麦克风权限和音频驱动")
+                                 f"无法启动语音输入:\n{str(e)}\n请检查麦克风权限和音频驱动")
             QMessageBox.critical(self, "导入错误", f"无法加载语音模块: {str(e)}")
 
     def show_gesture_dialog(self):
-        from gesture_page import GestureControlDialog
-        dialog = GestureControlDialog(self)
-        dialog.exec_()
+        from ui.gesture_page import GestureControlDialog
+        self.gesture_dialog = GestureControlDialog(self)  # 用self保存引用，防止被回收
+        self.gesture_dialog.show()
 
     def insert_ai_result(self, result):
         self.hide_loading()  # ✅ 隐藏沙漏
-        dialog = AIResultDialog(result, self)
-        dialog.exec_()
+        self.ai_result_dialog = AIResultDialog(result, self)  # 保存引用
+        self.ai_result_dialog.show()  # 非模态显示
 
         self.statusBarMessage("AI 处理完成 ✅")
         self.setEnabled(True)
@@ -382,3 +386,13 @@ class WritingPage(QWidget):
     def hide_loading(self):
         self.loading_movie.stop()
         self.loading_label.hide()
+
+    def get_main_text(self):
+        return self.text_edit.toPlainText()
+
+    def open_translate_page(self):
+        self.translate_window = TranslatePage(get_main_text_callback=self.get_main_text)
+        self.translate_window.setWindowTitle("翻译助手")
+        self.translate_window.resize(600, 400)
+        self.translate_window.show()
+
