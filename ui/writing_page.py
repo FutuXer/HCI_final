@@ -134,6 +134,16 @@ class WritingPage(QWidget):
         zoom_out_action.triggered.connect(lambda: self.text_edit.zoomOut(1))
         toolbar.addAction(zoom_out_action)
 
+        # 语音识别输入
+        voice_action = QAction(QIcon("icons/voice.png"), "语音输入", self)
+        voice_action.triggered.connect(self.show_voice_dialog)
+        toolbar.addAction(voice_action)
+
+        # 手势控制
+        gesture_action = QAction(QIcon("icons/gesture.png"), "手势控制", self)
+        gesture_action.triggered.connect(self.show_gesture_dialog)
+        toolbar.addAction(gesture_action)
+
         # AI扩写按钮
         expand_action = QAction(QIcon("icons/expand.png"), "AI 扩写", self)
         expand_action.triggered.connect(lambda: self.call_ai_writer("扩写"))
@@ -325,6 +335,28 @@ class WritingPage(QWidget):
         self.ai_thread.result_signal.connect(self.insert_ai_result)
         self.ai_thread.error_signal.connect(self.show_ai_error)
         self.ai_thread.start()
+
+    def show_voice_dialog(self):
+        try:
+            # 延迟导入关键模块
+            from ui.voice_page import VoiceInputDialog
+            import pyaudio
+            # 测试音频设备
+            p = pyaudio.PyAudio()
+            p.terminate()
+
+            dialog = VoiceInputDialog(self)
+            dialog.exec_()
+        except Exception as e:
+            QMessageBox.critical(self, "音频初始化失败",
+                                 f"无法启动语音输入:\n{str(e)}\n"
+                                 f"请检查麦克风权限和音频驱动")
+            QMessageBox.critical(self, "导入错误", f"无法加载语音模块: {str(e)}")
+
+    def show_gesture_dialog(self):
+        from gesture_page import GestureControlDialog
+        dialog = GestureControlDialog(self)
+        dialog.exec_()
 
     def insert_ai_result(self, result):
         self.hide_loading()  # ✅ 隐藏沙漏
