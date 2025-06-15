@@ -74,11 +74,17 @@ class VoiceInputThread(QThread):
             raise Exception(f"识别过程中发生错误: {str(e)}")
 
     def stop(self):
+        """彻底的停止方法"""
         self.mutex.lock()
         self._running = False
         self.mutex.unlock()
+
+        # 清空可能存在的缓冲
+        if hasattr(self, '_last_audio_data'):
+            del self._last_audio_data
+
         self.status_update.emit("🛑 已停止")
-        self.wait()  # 阻塞等待线程结束，确保线程完全退出后再返回
+        self.wait(500)
 
     def run(self):
         self.mutex.lock()
@@ -86,53 +92,53 @@ class VoiceInputThread(QThread):
         self.mutex.unlock()
 
         try:
-            from ui.resources import AudioManager
-            audio = AudioManager()
+            while self._running:
+                try:
+                    # 使用AudioManager获取音频流
+                    from ui.resources import AudioManager
+                    audio = AudioManager()
 
-            self.status_update.emit("🎤 正在录音...请说话")
+                    self.status_update.emit("🎤 正在录音...请说话")
 
-            stream = audio.p.open(
-                format=self.FORMAT,
-                channels=self.CHANNELS,
-                rate=self.RATE,
-                input=True,
-                frames_per_buffer=self.CHUNK
-            )
+                    # 录音逻辑
+                    stream = audio.p.open(
+                        format=self.FORMAT,
+                        channels=self.CHANNELS,
+                        rate=self.RATE,
+                        input=True,
+                        frames_per_buffer=self.CHUNK
+                    )
 
-            frames = []
+                    frames = []
+                    for _ in range(0, int(self.RATE / self.CHUNK * 5)):  # 5秒录音
+                        self.mutex.lock()
+                        if not self._running:
+                            self.mutex.unlock()
+                            break
+                        self.mutex.unlock()
 
-            while True:
-                self.mutex.lock()
-                running = self._running
-                self.mutex.unlock()
+                        data = stream.read(self.CHUNK)
+                        frames.append(data)
 
-                if not running:
-                    break
+                    stream.stop_stream()
+                    stream.close()
 
-                data = stream.read(self.CHUNK)
-                frames.append(data)
+                    # 保存录音文件
+                    with wave.open(self.WAVE_OUTPUT_FILENAME, 'wb') as wf:
+                        wf.setnchannels(self.CHANNELS)
+                        wf.setsampwidth(audio.p.get_sample_size(self.FORMAT))
+                        wf.setframerate(self.RATE)
+                        wf.writeframes(b''.join(frames))
 
-                # 这里可以加个限制最长录音时间，例如10秒，防止死循环
-                if len(frames) >= int(self.RATE / self.CHUNK * 10):
-                    break
+                    # 识别语音
+                    self.status_update.emit("识别中...")
+                    text = self.recognize_audio(self.WAVE_OUTPUT_FILENAME)
+                    self.result_ready.emit(text)
 
-            stream.stop_stream()
-            stream.close()
-
-            if frames:
-                with wave.open(self.WAVE_OUTPUT_FILENAME, 'wb') as wf:
-                    wf.setnchannels(self.CHANNELS)
-                    wf.setsampwidth(audio.p.get_sample_size(self.FORMAT))
-                    wf.setframerate(self.RATE)
-                    wf.writeframes(b''.join(frames))
-
-                self.status_update.emit("识别中...")
-                text = self.recognize_audio(self.WAVE_OUTPUT_FILENAME)
-                self.result_ready.emit(text)
-
-        except Exception as e:
-            self.error_occurred.emit(f"识别错误: {str(e)}")
+                except Exception as e:
+                    self.error_occurred.emit(f"识别错误: {str(e)}")
+                    time.sleep(1)  # 防止快速循环报错
         finally:
-            self.status_update.emit("准备就绪")
+            self.status_update.emit("准备就绪")  # 确保最终状态重置
             if os.path.exists(self.WAVE_OUTPUT_FILENAME):
                 os.remove(self.WAVE_OUTPUT_FILENAME)
