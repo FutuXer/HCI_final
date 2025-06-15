@@ -68,6 +68,7 @@ class MainWindow(QMainWindow):
                 self.writing_page.text_edit.setPlainText(content)
                 self.writing_page.current_file_path = None
                 self.writing_page.title_label.setText(f"导入 DOCX: {os.path.basename(file_path)}")
-                self.stack.setCurrentWidget(self.writing_page)
+                self.stacked_widget.setCurrentWidget(self.writing_page)
+
             except Exception as e:
                 QMessageBox.critical(self, "打开失败", f"无法读取文件：\n{str(e)}")
