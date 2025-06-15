@@ -110,7 +110,7 @@ class VoiceInputThread(QThread):
                     )
 
                     frames = []
-                    for _ in range(0, int(self.RATE / self.CHUNK * 5)):  # 5秒录音
+                    for _ in range(0, int(self.RATE / self.CHUNK * 10)):  # 10秒录音
                         self.mutex.lock()
                         if not self._running:
                             self.mutex.unlock()
